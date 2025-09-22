@@ -1,0 +1,12 @@
+{
+  "name": "speed",
+  "version": "1.0.0",
+  "description": "A Speed game using WebRTC",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
