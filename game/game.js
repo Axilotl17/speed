@@ -1,41 +1,55 @@
-let canvas, cardsctx, basectx;
-
 window.addEventListener('DOMContentLoaded', () => {
     base = document.getElementById('base');
     cards = document.getElementById('cards');
-    foci = document.getElementById('focus');
+    foci = document.getElementById('foci');
 
     basectx = base.getContext('2d');
     cardsctx = cards.getContext('2d');
     focictx = foci.getContext('2d');
     
+    foci.addEventListener("mousemove", (event) => {
+        const rect = foci.getBoundingClientRect();
+        const mouseX = (event.clientX - rect.left) * (foci.width / rect.width);
+        const mouseY = (event.clientY - rect.top) * (foci.width / rect.width);
+
+        for (const spot of allSpots) {
+            if (
+                mouseX >= spot.x - padding &&
+                mouseX <= spot.x + cardWidth + padding &&
+                mouseY >= spot.y - padding &&
+                mouseY <= spot.y + cardHeight + padding
+            ) {
+                focusedSpot = spot
+                break;
+            }
+        }
+    });
+
+    foci.addEventListener("click", (event) => {
+        const rect = foci.getBoundingClientRect();
+        const clickX = (event.clientX - rect.left) * (foci.width / rect.width);
+        const clickY = (event.clientY - rect.top) * (foci.width / rect.width);
+
+        for (const spot of allSpots) {
+            if (
+                clickX >= spot.x - padding &&
+                clickX <= spot.x + cardWidth + padding &&
+                clickY >= spot.y - padding &&
+                clickY <= spot.y + cardHeight + padding
+            ) {
+                handleSpotClick(spot);
+                break;
+            }
+        }
+    });
+
+    resizeCanvas();
+
     requestAnimationFrame(gameLoop);
     createSpots()
 
     preloadSounds();
 });
-
-function resizeCanvas() {
-    let width, height
-    if(window.innerWidth/window.innerHeight > 1.5) {
-        width = innerHeight*1.5
-        height = innerHeight
-    } else {
-        width = innerWidth
-        height = innerWidth/1.5
-    }
-
-    base.style.width = width-18+"px";
-    base.style.height = height-18+"px";
-
-    cards.style.width = width-18+"px";
-    cards.style.height = height-18+"px";
-}
-
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-var cardPerspective = true
 
 const cardKeys = [
     // Spades (S)
@@ -110,14 +124,18 @@ function playSound(name) {
     source.start();
 }
 
-var piles = [1, 2, 3, 4, 5] // max 7
-var decks = 1
-var deck = [];
-var spots
 const padding = 12 // max 23
 const maxStack = 5 // -1 for inf
 const stackOffset = 5
 const animationSpeed = 1
+const cardPerspective = true
+
+var piles = [1, 2, 3, 4, 5] // max 7
+var decks = 1
+var deck = [];
+var spots
+
+var focusedSpot
 
 const allSpots = []
 
@@ -291,7 +309,6 @@ function drawPile(spot) {
 }
 
 function moveCard(spotA, spotB, task) {
-
     playSound("move")
 
     if (task) task.destination = spotB;
@@ -383,28 +400,10 @@ function createFlipAnimation(card, x, y, duration) {
     };
 }
 
-// canvas.addEventListener("click", (event) => {
-//     const rect = canvas.getBoundingClientRect();
-//     const clickX = event.clientX - rect.left;
-//     const clickY = event.clientY - rect.top;
-
-//     for (const spot of allSpots) {
-//         if (
-//             clickX >= spot.x &&
-//             clickX <= spot.x + cardWidth &&
-//             clickY >= spot.y &&
-//             clickY <= spot.y + cardWidth
-//         ) {
-//             handleBoxClick(box);
-//             break;
-//         }
-//     }
-// });
-
-// function handleSpotClick(spot) {
-//   console.log("Clicked spot:", spot);
-//   // Do something with it
-// }
+function handleSpotClick(spot) {
+    console.log("Clicked spot:", spot);
+    //moveCard(spots.deckA, spot, {"flip":true})
+}
 
 function gameLoop(now) {
     cardsctx.clearRect(0, 0, cards.width, cards.height);
@@ -440,4 +439,24 @@ function gameLoop(now) {
     requestAnimationFrame(gameLoop);
 }
 
+function resizeCanvas() {
+    let width, height
+    if(window.innerWidth/window.innerHeight > 1.5) {
+        width = innerHeight*1.5
+        height = innerHeight
+    } else {
+        width = innerWidth
+        height = innerWidth/1.5
+    }
 
+    base.style.width = width-18+"px";
+    base.style.height = height-18+"px";
+
+    cards.style.width = width-18+"px";
+    cards.style.height = height-18+"px";
+
+    foci.style.width = width-18+"px";
+    foci.style.height = height-18+"px";
+}
+
+window.addEventListener('resize', resizeCanvas);
