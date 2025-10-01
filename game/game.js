@@ -132,6 +132,7 @@ const maxStack = 5 // -1 for inf
 const stackOffset = 5
 const animationSpeed = 1
 const cardPerspective = true
+const cardScalar = 0.03 // how much card grows by when selected or focused
 
 var piles = [1, 2, 3, 4, 5] // max 7
 var decks = 1
@@ -321,9 +322,9 @@ function drawPile(spot) {
         //console.log(topCards)
         let card = topCards.at(-1)
         // Change size of card depending on if focused/selected
-        cardScale = 0
-        if(focusedSpot === spot) {cardScale += 0.03}
-        if(selectedSpot === spot) {cardScale += 0.03}
+        let cardScale = 0
+        if(focusedSpot === spot) {cardScale += cardScalar}
+        if(selectedSpot === spot) {cardScale += cardScalar}
 
         if (card) {
             if(!card.busy){
@@ -389,7 +390,7 @@ function errorCard(spot) {
     // Calculating for Parallax stacking
     let x = Math.round(spot.x + (cardPerspective ? (((2*spot.x + cardWidth) / base.width) - 1) : -1) * (stackOffset * (6/5)) * cardIndex)
     let y = Math.round(spot.y - stackOffset * cardIndex)
-    animations.push(createErrorAnimation(card, x, y, animationSpeed * 250))
+    animations.push(createErrorAnimation(card, x, y, animationSpeed * 250, spot))
 }
 
 function createMoveAnimation(card, fromX, fromY, toX, toY, duration, task) {
@@ -447,7 +448,7 @@ function createFlipAnimation(card, x, y, duration) {
     };
 }
 
-function createErrorAnimation(card, x, y, duration) {
+function createErrorAnimation(card, x, y, duration, spot) {
     const startTime = performance.now();
     const img = (card.faceUp ? cardImages[card.value] : cardImages.back)
 
@@ -458,9 +459,23 @@ function createErrorAnimation(card, x, y, duration) {
             const t = Math.min(elapsed / duration, 1); 
 
             // Wiggle it
-            displacedX = x + cardWidth * (10 * (Math.pow(t,5) - 2.5*Math.pow(t,4) + 2*Math.pow(t,3) - 0.5*Math.pow(t,2)))
+            let displacedX = x + cardWidth * (10 * (Math.pow(t,5) - 2.5*Math.pow(t,4) + 2*Math.pow(t,3) - 0.5*Math.pow(t,2)));
+
+            let cardScale = 0
+            if(focusedSpot === spot) {cardScale += cardScalar}
+            if(selectedSpot === spot) {cardScale += cardScalar}
             
-            cardsctx.drawImage(img, displacedX, y, cardWidth, cardHeight);
+            if(focusedSpot) {
+                cardsctx.drawImage(
+                    img, 
+                    displacedX - cardScale*cardWidth, 
+                    y - cardScale*cardHeight, 
+                    cardWidth * (1+2*cardScale), 
+                    cardHeight * (1+2*cardScale)
+                );
+            } else {
+                cardsctx.drawImage(img, displacedX, y, cardWidth, cardHeight);
+            }
 
             return t >= 1; // return true when animation is done
 
@@ -476,7 +491,7 @@ function handleSpotClick(spot) {
     if(spot === selectedSpot) {
         selectedSpot = 0;
     } else if (selectedSpot === 0) { // if none selected...
-        if(spots.stockB.includes(spot)) { // and it's in your stock...
+        if(spots.stockB.includes(spot) && spot.cards.length != 0) { // and it's in your stock...
             selectedSpot = spot; // select this spot.
         } else if (spot.cards.length != 0){
             errorCard(spot); // error if not selectable
@@ -508,10 +523,10 @@ function handleSpotClick(spot) {
                 selectedSpot = 0;
             } else {
                 errorCard(selectedSpot)
-                selectedSpot = 0
+                selectedSpot = spot
             }       
         } else { // onto somewhere silly
-            errorCard(selectedSpot)
+            errorCard(spot)
             selectedSpot = 0
         }
     }
