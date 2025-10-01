@@ -1,13 +1,16 @@
-window.addEventListener('DOMContentLoaded', () => {
-    base = document.getElementById('base');
-    cards = document.getElementById('cards');
-    foci = document.getElementById('foci');
+import { sendMessage } from '../script.js';
 
-    basectx = base.getContext('2d');
-    cardsctx = cards.getContext('2d');
-    focictx = foci.getContext('2d');
-    
+const base = document.getElementById('base');
+const cards = document.getElementById('cards');
+const foci = document.getElementById('foci');
+
+const basectx = base.getContext('2d');
+const cardsctx = cards.getContext('2d');
+const focictx = foci.getContext('2d');
+
+window.addEventListener('DOMContentLoaded', () => {
     foci.addEventListener("mousemove", (event) => {
+        window.spots=spots
         const rect = foci.getBoundingClientRect();
         const mouseX = (event.clientX - rect.left) * (foci.width / rect.width);
         const mouseY = (event.clientY - rect.top) * (foci.width / rect.width);
@@ -43,14 +46,11 @@ window.addEventListener('DOMContentLoaded', () => {
                 break;
             }
         }
-        console.log("not a spot!")
     });
 
     resizeCanvas();
-
     requestAnimationFrame(gameLoop);
-    createSpots()
-
+    createSpots();
     preloadSounds();
 });
 
@@ -547,6 +547,41 @@ function isSame(spotA, spotB) {
 
     return (valueA == valueB);
 } 
+
+function sendCards(spot){
+    let msg = {}
+    msg.type = 'cards'
+    msg.spot = getInverseKeyByValue(spot)
+    msg.cards = spot.cards
+    sendMessage(JSON.stringify(msg))
+}
+
+function sendMove(spotA, spotB) {
+    
+}
+
+export function recieveCards(msg) {
+    
+}
+
+export function recieveMove(msg) {
+
+}
+
+export function getKeyByValue(spot) {
+    let spotKey = Object.keys(spots).find(key => spots[key] === spot);
+    let index
+    if(spotKey) {
+        index = -1
+    } else {
+        spotKey = "stockA"
+        index = spots.stockB.indexOf(spot)
+    }
+    console.log(spotKey + ", " + index)
+    return {[spotKey] : index}
+}
+
+window.getKeyByValue = getKeyByValue
 
 function gameLoop(now) {
     cardsctx.clearRect(0, 0, cards.width, cards.height);

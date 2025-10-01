@@ -12,15 +12,34 @@
             <canvas id="cards" width="1200" height="800" ></canvas>
             <canvas id="foci" width="1200" height="800" ></canvas>
         </div>
-        <div id="setup">
-            <div>
-                <input type="text" id="roomCodeInput" placeholder="Enter room code" />
-                <button id="createRoom">Create Room</button>
+        <!-- <div id="setup">
+            <h1 class="center">Connect to or create a room</h1>
+            <div id="connection" class="center">
+                <input type="text" id="roomCodeInput" placeholder="Enter room code" /> 
+                <button id="createRoom">Create Room</button> 
                 <button id="joinRoom">Join Room</button>
             </div>
             <button id = "btnx"><p id = "btnxp">x</p></button>
+        </div> -->
+        <div id="setup">
+            <div class="lobby">
+                <h2>Game Lobby</h2>
+
+                <!-- Enter Room Code -->
+                <input type="text" id="roomCode" placeholder="Enter room code">
+
+                <!-- Join/Create Buttons -->
+                <button class="primary" id="joinRoom">Join Room</button>
+                <button class="secondary" id="createRoom">Create Room</button>
+
+                <!-- Connection Status -->
+                <div id="status" class="status disconnected">Not connected</div>
+
+                <!-- Start Button -->
+                <button class="primary" disabled id="startBtn">Start Game</button>
+            </div>
         </div>
     </body>
-    <!-- <script src="script.js"></script> -->
-    <script src="./game/game.js"></script>
+    <script type="module" src="./game/game.js"></script>
+    <script type="module" src="script.js"></script>
 </html>
