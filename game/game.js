@@ -71,10 +71,10 @@ const cardKeys = [
 const cardImages = {};
 const backImg = new Image();
 
-backImg.src = "./cards/back.png";
+backImg.src = "./game/cards/back.png";
 cardImages.back = backImg;
 
-function loadCards(path = "./cards/") {
+function loadCards(path = "./game/cards/") {
     cardKeys.forEach(key => {
         const img = new Image();
         img.src = `${path}${key}.png`;
@@ -106,8 +106,8 @@ async function loadSound(name, url) {
 // Preload both sounds
 async function preloadSounds() {
     await Promise.all([
-        loadSound('move', './audio/move.wav'),
-        loadSound('flip', './audio/flip.wav')
+        loadSound('move', './game/audio/move.wav'),
+        loadSound('flip', './game/audio/flip.wav')
     ]);
 }
 
