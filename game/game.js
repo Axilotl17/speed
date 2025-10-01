@@ -21,6 +21,8 @@ window.addEventListener('DOMContentLoaded', () => {
             ) {
                 focusedSpot = spot
                 break;
+            } else {
+                focusedSpot = 0
             }
         }
     });
@@ -41,6 +43,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 break;
             }
         }
+        console.log("not a spot!")
     });
 
     resizeCanvas();
@@ -136,6 +139,7 @@ var deck = [];
 var spots
 
 var focusedSpot
+var selectedSpot = 0 
 
 const allSpots = []
 
@@ -293,17 +297,45 @@ function easingFn(t, p) {
 }
 
 function drawPile(spot) {
+    // List of cards
     const pile = spot.cards
-    for(const [i, card] of pile.slice(-1 * (maxStack === -1 ? pile.length : maxStack)).entries()) {
-        //console.log(`drawing ${card.busy ? "busy " : ""}${card.faceUp ? "face-up " : ""}card ${card.value} @ ${spot.x}, ${spot.y}`)
+    // Only draws the top maxStack (-1 is inf) cards
+    const topCards = pile.slice(-1 * (maxStack === -1 ? pile.length : maxStack))
+
+    // Doesnt draw last card if is focusedSpot or 
+    for(const [i, card] of (focusedSpot === spot || selectedSpot === spot? topCards.slice(0,-1).entries() : topCards.entries())) {
         if(!card.busy){
+            // Drawing the cards
             cardsctx.drawImage(
+                // Checking if faceup
                 card.faceUp ? cardImages[card.value] : cardImages.back, 
-                Math.round(spot.x + (cardPerspective ? (((2*spot.x + cardWidth) / base.width) - 1) : -1) * ((stackOffset * (6/5))*i)),
+                Math.round(spot.x + (cardPerspective ? (((2*spot.x + cardWidth) / base.width) - 1) : -1) * ((stackOffset * (6/5))*i)), // Parallax effect
                 Math.round(spot.y - (stackOffset*i)),
                 cardWidth, 
                 cardHeight
             );
+        }
+    }
+    // Drawing remaining card larger if spot is focused
+    if(focusedSpot === spot || selectedSpot === spot && topCards.length > 0) {
+        //console.log(topCards)
+        let card = topCards.at(-1)
+        // Change size of card depending on if focused/selected
+        cardScale = 0
+        if(focusedSpot === spot) {cardScale += 0.03}
+        if(selectedSpot === spot) {cardScale += 0.03}
+
+        if (card) {
+            if(!card.busy){
+                focictx.drawImage(
+                    // Checking if faceup
+                    card.faceUp ? cardImages[card.value] : cardImages.back, 
+                    Math.round(spot.x + (cardPerspective ? (((2*spot.x + cardWidth) / base.width) - 1) : -1) * ((stackOffset * (6/5))*(topCards.length - 1)) - cardWidth*cardScale), // Parallax effect
+                    Math.round(spot.y - (stackOffset*(topCards.length - 1)) - cardHeight*cardScale),
+                    cardWidth * (1 + 2*cardScale),
+                    cardHeight * (1 + 2*cardScale)
+                );
+            }
         }
     }
 }
@@ -338,11 +370,26 @@ function flipCard(spot, card) {
 
     let cardIndex = (maxStack === -1 ? spot.cards.length : Math.min(spot.cards.length, maxStack - 1)) - 1
 
+    // Calculating for Parallax stacking
     let x = Math.round(spot.x + (cardPerspective ? (((2*spot.x + cardWidth) / base.width) - 1) : -1) * (stackOffset * (6/5)) * cardIndex)
     let y = Math.round(spot.y - stackOffset * cardIndex)
     //console.log(`spot: ${spot}  x: ${spot.x}  y: ${spot.y}`)
 
     animations.push(createFlipAnimation(card, x, y, animationSpeed * 150))
+}
+
+function errorCard(spot) {
+    let card = spot.cards[spot.cards.length - 1]
+    if(card.busy) {
+        return;
+    }
+    card.busy = true;
+    let cardIndex = (maxStack === -1 ? spot.cards.length : Math.min(spot.cards.length, maxStack)) - 1
+
+    // Calculating for Parallax stacking
+    let x = Math.round(spot.x + (cardPerspective ? (((2*spot.x + cardWidth) / base.width) - 1) : -1) * (stackOffset * (6/5)) * cardIndex)
+    let y = Math.round(spot.y - stackOffset * cardIndex)
+    animations.push(createErrorAnimation(card, x, y, animationSpeed * 250))
 }
 
 function createMoveAnimation(card, fromX, fromY, toX, toY, duration, task) {
@@ -354,13 +401,12 @@ function createMoveAnimation(card, fromX, fromY, toX, toY, duration, task) {
         task,
         draw(now) {
             const elapsed = now - startTime;
-            const t = Math.min(elapsed / duration, 1);         // normalized time [0,1]
-            const easedT = easingFn(t, 2.5);                         // apply easing function
+            const t = Math.min(elapsed / duration, 1); // normalized time [0,1]
+            const easedT = easingFn(t, 2.5); // apply easing function
 
             const x = fromX + (toX - fromX) * easedT;
             const y = fromY + (toY - fromY) * easedT;
 
-            // You can adjust width/height or keep constants
             cardsctx.drawImage(img, x, y, cardWidth, cardHeight);
 
             return t >= 1; // return true when animation is done
@@ -371,7 +417,7 @@ function createMoveAnimation(card, fromX, fromY, toX, toY, duration, task) {
 function createFlipAnimation(card, x, y, duration) {
 
     const startTime = performance.now();
-    const img = cardImages[card.value]
+    const img = (card.faceUp ? cardImages[card.value] : cardImages.back)
 
     return {
         card,
@@ -384,8 +430,9 @@ function createFlipAnimation(card, x, y, duration) {
             // Flip progress is still based on mirrored distance from 0.5
             const flipProgress = 2 * Math.abs(easedT - 0.5);
 
-            const image = easedT < 0.5 ? cardImages["back"] : img;
+            const image = easedT < 0.5 ? cardImages["back"] : img; // Swaps to backside when halfway through animation
 
+            // Marking center of card, scaling about center
             const centerX = x + cardWidth / 2;
             const centerY = y + cardHeight / 2;
 
@@ -393,20 +440,102 @@ function createFlipAnimation(card, x, y, duration) {
             cardsctx.translate(centerX, centerY);
             cardsctx.scale(flipProgress, 1);
             cardsctx.drawImage(image, -cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight);
-            cardsctx.restore();
+            cardsctx.restore(); // so it scales the original image every time
 
-            return t >= 1;
+            return t >= 1; // return true when animation is done
         }
     };
 }
 
-function handleSpotClick(spot) {
-    console.log("Clicked spot:", spot);
-    //moveCard(spots.deckA, spot, {"flip":true})
+function createErrorAnimation(card, x, y, duration) {
+    const startTime = performance.now();
+    const img = (card.faceUp ? cardImages[card.value] : cardImages.back)
+
+    return {
+        card, 
+        draw(now) {
+            const elapsed = now - startTime;
+            const t = Math.min(elapsed / duration, 1); 
+
+            // Wiggle it
+            displacedX = x + cardWidth * (10 * (Math.pow(t,5) - 2.5*Math.pow(t,4) + 2*Math.pow(t,3) - 0.5*Math.pow(t,2)))
+            
+            cardsctx.drawImage(img, displacedX, y, cardWidth, cardHeight);
+
+            return t >= 1; // return true when animation is done
+
+        }
+    }
 }
+
+function handleSpotClick(spot) {
+    //console.log("Clicked spot:", spot);
+    //moveCard(spots.deckA, spot, {"flip":true})
+    //console.log(spot)
+
+    if(spot === selectedSpot) {
+        selectedSpot = 0;
+    } else if (selectedSpot === 0) { // if none selected...
+        if(spots.stockB.includes(spot)) { // and it's in your stock...
+            selectedSpot = spot; // select this spot.
+        } else if (spot.cards.length != 0){
+            errorCard(spot); // error if not selectable
+        }
+    } else { // all cases where 2 cards have been selected (ish)
+        if(spot === spots.stackA || spot === spots.stackB) { // onto one of the stacks
+            if (isAdjacent(selectedSpot, spot)){
+                moveCard(selectedSpot, spot); 
+                if(selectedSpot.cards.length){
+                    if(!selectedSpot.cards.at(-1).faceUp) {flipCard(selectedSpot)}; // check last card in first stack, flip if needed
+                }
+                selectedSpot = 0;
+            } else {
+                errorCard(selectedSpot)
+                selectedSpot = 0
+            }
+        } else if (spots.stockB.includes(spot)) { // onto your stock
+            if(spot.cards.length == 0){ // if no cards in target spot
+                moveCard(selectedSpot, spot); 
+                if(selectedSpot.cards.length){
+                    if(!selectedSpot.cards.at(-1).faceUp) {flipCard(selectedSpot)}; // check last card in first stack, flip if needed
+                }
+                selectedSpot = 0;
+            } else if(isSame(selectedSpot, spot)){
+                moveCard(selectedSpot, spot);
+                if(selectedSpot.cards.length){
+                    if(!selectedSpot.cards.at(-1).faceUp) {flipCard(selectedSpot)}; // check last card in first stack, flip if needed
+                }
+                selectedSpot = 0;
+            } else {
+                errorCard(selectedSpot)
+                selectedSpot = 0
+            }       
+        } else { // onto somewhere silly
+            errorCard(selectedSpot)
+            selectedSpot = 0
+        }
+    }
+}
+
+function isAdjacent(spotA, spotB) {
+    let valueA = parseInt(spotA.cards.at(-1).value.slice(1));
+    let valueB = parseInt(spotB.cards.at(-1).value.slice(1));
+
+    //true if adjacent, e.g. 2&3; also true for 1&13 and 13&1.
+    return (Math.abs(valueA-valueB) == 1 || Math.abs(valueA%13-valueB%13) == 1);
+} 
+
+
+function isSame(spotA, spotB) {
+    let valueA = parseInt(spotA.cards.at(-1).value.slice(1));
+    let valueB = parseInt(spotB.cards.at(-1).value.slice(1));
+
+    return (valueA == valueB);
+} 
 
 function gameLoop(now) {
     cardsctx.clearRect(0, 0, cards.width, cards.height);
+    focictx.clearRect(0, 0, foci.width, foci.height);
 
     // Draw static cards
     // for (const card of statics) {
