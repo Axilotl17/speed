@@ -34,7 +34,6 @@ window.addEventListener('DOMContentLoaded', () => {
         const rect = foci.getBoundingClientRect();
         const clickX = (event.clientX - rect.left) * (foci.width / rect.width);
         const clickY = (event.clientY - rect.top) * (foci.width / rect.width);
-
         for (const spot of allSpots) {
             if (
                 clickX >= spot.x - padding &&
@@ -95,7 +94,6 @@ const audioBuffers = {};
     }, { once: true });
 });
 
-
 // Preload function for one sound
 async function loadSound(name, url) {
     const response = await fetch(url);
@@ -150,7 +148,11 @@ function init() {
     spots.deckB.cards.push(...deck.slice(deck.length/2, deck.length))
 }
 
-function deal() {
+export function deal() {
+    //debugging
+    //moveCard(spots.deckA, spots.stackA, {'flip':true})
+    //moveCard(spots.deckB, spots.stackB, {'flip':true})
+
     var tasks = []
     for(const [i, num] of piles.entries()) {
         for (let j = 0; j < num; j++) {
@@ -341,7 +343,10 @@ function drawPile(spot) {
     }
 }
 
-function moveCard(spotA, spotB, task) {
+function moveCard(spotA, spotB, task, avoidSend) {
+    if(!avoidSend) {
+        sendMove(spotA, spotB, task)
+    }
     playSound("move")
 
     if (task) task.destination = spotB;
@@ -352,7 +357,6 @@ function moveCard(spotA, spotB, task) {
 
     let cardIndexA = (maxStack === -1 ? spotA.cards.length : Math.min(spotA.cards.length, maxStack - 1))
     let cardIndexB = (maxStack === -1 ? spotB.cards.length : Math.min(spotB.cards.length, maxStack - 1)) - 1
-
 
     let fromX = Math.round(spotA.x + (cardPerspective ? (((2*spotA.x + cardWidth) / base.width) - 1) : -1) * (stackOffset * (6/5)) * cardIndexA)
     let fromY = Math.round(spotA.y - stackOffset * cardIndexA)
@@ -499,7 +503,7 @@ function handleSpotClick(spot) {
     } else { // all cases where 2 cards have been selected (ish)
         if(spot === spots.stackA || spot === spots.stackB) { // onto one of the stacks
             if (isAdjacent(selectedSpot, spot)){
-                moveCard(selectedSpot, spot); 
+                moveCard(selectedSpot, spot);
                 if(selectedSpot.cards.length){
                     if(!selectedSpot.cards.at(-1).faceUp) {flipCard(selectedSpot)}; // check last card in first stack, flip if needed
                 }
@@ -538,50 +542,104 @@ function isAdjacent(spotA, spotB) {
 
     //true if adjacent, e.g. 2&3; also true for 1&13 and 13&1.
     return (Math.abs(valueA-valueB) == 1 || Math.abs(valueA%13-valueB%13) == 1);
-} 
-
+}
 
 function isSame(spotA, spotB) {
     let valueA = parseInt(spotA.cards.at(-1).value.slice(1));
     let valueB = parseInt(spotB.cards.at(-1).value.slice(1));
 
     return (valueA == valueB);
-} 
+}
 
 function sendCards(spot){
     let msg = {}
     msg.type = 'cards'
-    msg.spot = getInverseKeyByValue(spot)
+    msg.spot = swapAB(getSpotInfo(spot).spotName)
     msg.cards = spot.cards
-    sendMessage(JSON.stringify(msg))
+    sendMessage(msg)
 }
 
-function sendMove(spotA, spotB) {
-    
+function sendMove(spotA, spotB, task) {
+    let msg = {}
+    msg.type = 'move'
+    msg.spotA = swapAB(getSpotInfo(spotA).spotName)
+    msg.indexA = getSpotInfo(spotA).spotIndex
+    msg.spotB = swapAB(getSpotInfo(spotB).spotName)
+    msg.indexB = getSpotInfo(spotA).spotIndex
+    msg.task = task
+    sendMessage(msg)
+    console.log(msg)
 }
 
 export function recieveCards(msg) {
-    
+    let spot 
+    switch (msg.spot) { //only works when sending to deckA or deckB
+        case 'deckA' :
+            spot = spots.deckA;
+            break;
+        case 'deckB' :
+            spot = spots.deckB;
+            break;
+    }
+    spot.cards.push(...msg.cards)
 }
 
 export function recieveMove(msg) {
-
+    console.log(msg)
+    let spotA, spotB
+    switch (msg.spotA) { // only works when sending from stocks
+        case 'stockA':
+            spotA = spots.stockA[msg.indexA];
+            break;
+        case 'stockB':
+            spotA = spots.stockB[msg.indexA]; //stock B, but the index A is the "from" index
+            break;
+    }
+    switch (msg.spotB) { // only works when sending to stacks or stocks
+        case 'stackA':
+            spotB = spots.stackA;
+            break;
+        case 'stackB':
+            spotB = spots.stackB;
+            break;
+        case 'stockA':
+            spotB = spots.stockA[msg.indexB]; //stock A, but the index B is the "to" index
+            break;
+        case 'stockB':
+            spotB = spots.stockB[msg.indexB]; 
+            break;
+    }
+    moveCard(spotA, spotB, msg.task, true)
 }
 
-export function getKeyByValue(spot) {
+export function getSpotInfo(spot) {
     let spotKey = Object.keys(spots).find(key => spots[key] === spot);
     let index
     if(spotKey) {
         index = -1
     } else {
-        spotKey = "stockA"
+        spotKey = "stockB"
         index = spots.stockB.indexOf(spot)
     }
-    console.log(spotKey + ", " + index)
-    return {[spotKey] : index}
+    return {
+        "spotName" : spotKey,
+        "spotIndex" : index
+    }
 }
 
-window.getKeyByValue = getKeyByValue
+function swapAB(spotName) { // swaps A for B in spot names vice versa
+    return spotName.slice(0,-1) + (spotName.at(-1) == "A" ? "B" : "A")
+}
+
+export function startGame() {
+    init()
+    sendCards(spots.deckA)
+    sendCards(spots.deckB)
+    sendMessage({'type':'deal'})
+    deal()
+}
+
+window.getSpotInfo = getSpotInfo
 
 function gameLoop(now) {
     cardsctx.clearRect(0, 0, cards.width, cards.height);

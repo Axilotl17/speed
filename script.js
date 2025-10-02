@@ -1,4 +1,4 @@
-import { recieveCards, recieveMove } from './game/game.js';
+import { startGame, recieveCards, recieveMove, deal } from './game/game.js';
 
 const configuration = {
     iceServers: [
@@ -17,6 +17,7 @@ let roomCode = '';
 const roomCodeInput = document.getElementById('roomCode');
 const createRoomBtn = document.getElementById('createRoom');
 const joinRoomBtn = document.getElementById('joinRoom');
+const startBtn = document.getElementById('startBtn')
 const setup = document.getElementById('setup');
 
 
@@ -32,18 +33,27 @@ function setStatus(text, state = "pending") {
     status.className = "status " + state; // "disconnected", "pending", or "connected"
 }
 
-function startGame() {
-    setup.hidden = true
-    init()
+function start() {
+    setup.style.display = 'none'
+    startGame()
 }
 
 function handleGameMsg(msg) {
+    console.log("msg:")
+    console.log(msg)
     switch (msg.type) {
+        case 'deal':
+            setup.style.display = 'none'
+            // deal()
+            break;
         case 'move':
-            recieveMove(msg)
+            recieveMove(msg);
+            break;
         case 'cards':
-            recieveCards(msg)
+            recieveCards(msg);
+            break;
         case 'win': 
+            break;
             //do something for win
     }
 }
@@ -83,6 +93,10 @@ joinRoomBtn.onclick = () => {
     setStatus("Joining room...", "pending");
     signalingSocket.send(JSON.stringify({ type: 'join-room', room: roomCode, peerId: localPeerId }));
 };
+
+startBtn.onclick = () => {
+    start()
+}
 
 export function sendMessage(msg) {
     for (const id in dataChannels) {dataChannels[id].send(JSON.stringify(msg));}
@@ -134,11 +148,11 @@ function createPeerConnection(peerId, isInitiator) {
 
 function setupDataChannel(dc, peerId) {
     dataChannels[peerId] = dc;
-    dc.onmessage = (event) => handleGameMsg(event.data)
+    dc.onmessage = (event) => handleGameMsg(JSON.parse(event.data))
     console.log(`Data channel with ${peerId} established`);
     setStatus("Connected to peer!", "connected");  // final green status
     if(isHost) {
-        document.getElementById('startBtn').disabled = false
+        startBtn.disabled = false
     }
 }
 
