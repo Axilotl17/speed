@@ -23,7 +23,7 @@ const setup = document.getElementById('setup');
 
 let isHost = false;
 
-const signalingSocket = new WebSocket('ws://localhost:3000');
+const signalingSocket = new WebSocket("ws://142.151.132.228:3000");
 
 setStatus("Not in room", "disconnected");
 
