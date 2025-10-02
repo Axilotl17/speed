@@ -1,4 +1,4 @@
-import { startGame, recieveCards, recieveMove, deal } from './game/game.js';
+import { startGame, recieveCards, recieveMove, recieveFlip, recieveSelect, flipNext } from './game/game.js';
 
 const configuration = {
     iceServers: [
@@ -39,7 +39,7 @@ function start() {
 }
 
 function handleGameMsg(msg) {
-    console.log("msg:")
+    //console.log("msg:")
     console.log(msg)
     switch (msg.type) {
         case 'deal':
@@ -49,8 +49,17 @@ function handleGameMsg(msg) {
         case 'move':
             recieveMove(msg);
             break;
+        case 'flip':
+            recieveFlip(msg);
+            break;
         case 'cards':
             recieveCards(msg);
+            break;
+        case 'select':
+            recieveSelect(msg)
+            break;
+        case 'flipNext':
+            flipNext(true)
             break;
         case 'win': 
             break;

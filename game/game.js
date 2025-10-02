@@ -42,9 +42,11 @@ window.addEventListener('DOMContentLoaded', () => {
                 clickY <= spot.y + cardHeight + padding
             ) {
                 handleSpotClick(spot);
-                break;
+                return;
             }
         }
+        selectedSpot = 0;
+        sendSelect(0);
     });
 
     resizeCanvas();
@@ -139,6 +141,7 @@ var spots
 
 var focusedSpot
 var selectedSpot = 0 
+var oppSelectedSpot = 0
 
 const allSpots = []
 
@@ -148,7 +151,7 @@ function init() {
     spots.deckB.cards.push(...deck.slice(deck.length/2, deck.length))
 }
 
-export function deal() {
+function deal() {
     //debugging
     //moveCard(spots.deckA, spots.stackA, {'flip':true})
     //moveCard(spots.deckB, spots.stackB, {'flip':true})
@@ -306,7 +309,7 @@ function drawPile(spot) {
     const topCards = pile.slice(-1 * (maxStack === -1 ? pile.length : maxStack))
 
     // Doesnt draw last card if is focusedSpot or 
-    for(const [i, card] of (focusedSpot === spot || selectedSpot === spot? topCards.slice(0,-1).entries() : topCards.entries())) {
+    for(const [i, card] of (focusedSpot === spot || (selectedSpot === spot || oppSelectedSpot === spot)? topCards.slice(0,-1).entries() : topCards.entries())) {
         if(!card.busy){
             // Drawing the cards
             cardsctx.drawImage(
@@ -320,13 +323,12 @@ function drawPile(spot) {
         }
     }
     // Drawing remaining card larger if spot is focused
-    if(focusedSpot === spot || selectedSpot === spot && topCards.length > 0) {
-        //console.log(topCards)
+    if(focusedSpot === spot || (selectedSpot === spot || oppSelectedSpot === spot) && topCards.length > 0) {
         let card = topCards.at(-1)
         // Change size of card depending on if focused/selected
         let cardScale = 0
         if(focusedSpot === spot) {cardScale += cardScalar}
-        if(selectedSpot === spot) {cardScale += cardScalar}
+        if((selectedSpot === spot || oppSelectedSpot === spot)) {cardScale += cardScalar}
 
         if (card) {
             if(!card.busy){
@@ -365,7 +367,10 @@ function moveCard(spotA, spotB, task, avoidSend) {
     animations.push(createMoveAnimation(card, fromX, fromY, toX, toY, animationSpeed * 250, task));
 }
 
-function flipCard(spot, card) {
+function flipCard(spot, card, avoidSend) {
+    if(!avoidSend) {
+        sendFlip(spot)
+    }
     playSound("flip")
     if(!card) {
         card = spot.cards[spot.cards.length - 1]
@@ -378,7 +383,6 @@ function flipCard(spot, card) {
     // Calculating for Parallax stacking
     let x = Math.round(spot.x + (cardPerspective ? (((2*spot.x + cardWidth) / base.width) - 1) : -1) * (stackOffset * (6/5)) * cardIndex)
     let y = Math.round(spot.y - stackOffset * cardIndex)
-    //console.log(`spot: ${spot}  x: ${spot.x}  y: ${spot.y}`)
 
     animations.push(createFlipAnimation(card, x, y, animationSpeed * 150))
 }
@@ -467,7 +471,7 @@ function createErrorAnimation(card, x, y, duration, spot) {
 
             let cardScale = 0
             if(focusedSpot === spot) {cardScale += cardScalar}
-            if(selectedSpot === spot) {cardScale += cardScalar}
+            if((selectedSpot === spot || oppSelectedSpot === spot)) {cardScale += cardScalar}
             
             if(focusedSpot) {
                 cardsctx.drawImage(
@@ -488,19 +492,24 @@ function createErrorAnimation(card, x, y, duration, spot) {
 }
 
 function handleSpotClick(spot) {
-    //console.log("Clicked spot:", spot);
-    //moveCard(spots.deckA, spot, {"flip":true})
-    //console.log(spot)
-
-    if(spot === selectedSpot) {
+    if(spot === selectedSpot) { // deselect spot
         selectedSpot = 0;
-    } else if (selectedSpot === 0) { // if none selected...
+        sendSelect(0);
+    } else if (spot === spots.deckB && !checkForMoves()) { // if on deckB and no valid moves
+        selectedSpot = spot
+        sendSelect(spot)
+        if(oppSelectedSpot === spots.deckA) {
+            flipNext()
+        }
+    } else if (selectedSpot == 0) { // if none selected...
         if(spots.stockB.includes(spot) && spot.cards.length != 0) { // and it's in your stock...
             selectedSpot = spot; // select this spot.
+            sendSelect(spot);
         } else if (spot.cards.length != 0){
             errorCard(spot); // error if not selectable
         }
-    } else { // all cases where 2 cards have been selected (ish)
+    } else if (!(selectedSpot == spots.deckA || selectedSpot == spots.deckB)) { // all cases where 2 cards have been selected (ish)
+        // excluding selectedSpot being a deck because dont want to move from deck to stock
         if(spot === spots.stackA || spot === spots.stackB) { // onto one of the stacks
             if (isAdjacent(selectedSpot, spot)){
                 moveCard(selectedSpot, spot);
@@ -508,9 +517,11 @@ function handleSpotClick(spot) {
                     if(!selectedSpot.cards.at(-1).faceUp) {flipCard(selectedSpot)}; // check last card in first stack, flip if needed
                 }
                 selectedSpot = 0;
+                sendSelect(0);
             } else {
                 errorCard(selectedSpot)
-                selectedSpot = 0
+                selectedSpot = 0;
+                sendSelect(0);
             }
         } else if (spots.stockB.includes(spot)) { // onto your stock
             if(spot.cards.length == 0){ // if no cards in target spot
@@ -519,16 +530,19 @@ function handleSpotClick(spot) {
                     if(!selectedSpot.cards.at(-1).faceUp) {flipCard(selectedSpot)}; // check last card in first stack, flip if needed
                 }
                 selectedSpot = 0;
+                sendSelect(0);
             } else if(isSame(selectedSpot, spot)){
                 moveCard(selectedSpot, spot);
                 if(selectedSpot.cards.length){
                     if(!selectedSpot.cards.at(-1).faceUp) {flipCard(selectedSpot)}; // check last card in first stack, flip if needed
                 }
                 selectedSpot = 0;
+                sendSelect(0);
             } else {
                 errorCard(selectedSpot)
-                selectedSpot = spot
-            }       
+                selectedSpot = spot;
+                sendSelect(spot);
+            }  
         } else { // onto somewhere silly
             errorCard(spot)
             selectedSpot = 0
@@ -557,21 +571,43 @@ function sendCards(spot){
     msg.spot = swapAB(getSpotInfo(spot).spotName)
     msg.cards = spot.cards
     sendMessage(msg)
+    console.log('sending cards')
 }
 
 function sendMove(spotA, spotB, task) {
-    let msg = {}
-    msg.type = 'move'
-    msg.spotA = swapAB(getSpotInfo(spotA).spotName)
-    msg.indexA = getSpotInfo(spotA).spotIndex
-    msg.spotB = swapAB(getSpotInfo(spotB).spotName)
-    msg.indexB = getSpotInfo(spotA).spotIndex
-    msg.task = task
-    sendMessage(msg)
-    console.log(msg)
+    let msg = {};
+    msg.type = 'move';
+    msg.spotA = swapAB(getSpotInfo(spotA).spotName);
+    msg.indexA = getSpotInfo(spotA).spotIndex;
+    msg.spotB = swapAB(getSpotInfo(spotB).spotName);
+    msg.indexB = getSpotInfo(spotB).spotIndex;
+    msg.task = task;
+    sendMessage(msg);
+}
+
+function sendFlip(spot) {
+    let msg = {};
+    msg.type = 'flip';
+    msg.spot = swapAB(getSpotInfo(spot).spotName)
+    msg.index = getSpotInfo(spot).spotIndex;
+    sendMessage(msg);
+}
+
+function sendSelect(spot) {
+    let msg = {};
+    msg.type = 'select';
+    if(spot == 0) {
+        msg.spot = 0
+        msg.index = -1;
+    } else {
+        msg.spot = swapAB(getSpotInfo(spot).spotName)
+        msg.index = getSpotInfo(spot).spotIndex;
+    }
+    sendMessage(msg);
 }
 
 export function recieveCards(msg) {
+    console.log('recieving cards')
     let spot 
     switch (msg.spot) { //only works when sending to deckA or deckB
         case 'deckA' :
@@ -585,9 +621,14 @@ export function recieveCards(msg) {
 }
 
 export function recieveMove(msg) {
-    console.log(msg)
     let spotA, spotB
-    switch (msg.spotA) { // only works when sending from stocks
+    switch (msg.spotA) { // only works when sending from decks or stocks
+        case 'deckA':
+            spotA = spots.deckA;
+            break;
+        case 'deckB':
+            spotA = spots.deckB; //stock B, but the index A is the "from" index
+            break;
         case 'stockA':
             spotA = spots.stockA[msg.indexA];
             break;
@@ -612,12 +653,50 @@ export function recieveMove(msg) {
     moveCard(spotA, spotB, msg.task, true)
 }
 
-export function getSpotInfo(spot) {
+export function recieveFlip(msg) {
+    let spot
+    switch (msg.spot) {
+        case 'stackA':
+            spot = spots.stackA;
+            break;
+        case 'stackB':
+            spot = spots.stackB;
+            break;
+        case 'stockA':
+            spot = spots.stockA[msg.index];
+            break;
+        case 'stockB':
+            spot = spots.stockB[msg.index];
+            break;
+    }
+    flipCard(spot, false, true)
+}
+
+export function recieveSelect(msg) {
+    let spot
+    switch (msg.spot) {
+        case 0 :
+            spot = 0
+            break;
+        case 'deckA':
+            spot = spots.deckA;
+            break;
+        case 'stockA':
+            spot = spots.stockA[msg.index];
+            break;
+    }
+    oppSelectedSpot = spot
+}
+
+function getSpotInfo(spot) {
     let spotKey = Object.keys(spots).find(key => spots[key] === spot);
     let index
-    if(spotKey) {
+    if(spotKey) { // if stacks or decks
         index = -1
-    } else {
+    } else if (spots.stockA.includes(spot)){ // if in stockA
+        spotKey = "stockA"
+        index = spots.stockA.indexOf(spot)
+    } else if (spots.stockB.includes(spot)){ // if in stockB
         spotKey = "stockB"
         index = spots.stockB.indexOf(spot)
     }
@@ -631,6 +710,60 @@ function swapAB(spotName) { // swaps A for B in spot names vice versa
     return spotName.slice(0,-1) + (spotName.at(-1) == "A" ? "B" : "A")
 }
 
+function checkForMoves() {
+    console.log('checking for moves')
+
+    // checking for if can simplify stock
+    if(spots.stockA.some(spot => spot.cards.some(card => !card.faceUp))) { // if any card is faceDown
+        if(spots.stockA.some(spot => spot.cards.length == 0)) { // and there's an empty space
+            console.log("empty space + facedown cards");
+            return true;
+        } else { // why its in else? following will error if empty space. 
+            // checking if can stack likes in stock
+            for (let i = 0; i < spots.stockA.length; i++) { // stock A
+                for (let j = i + 1; j < spots.stockA.length; j++) {
+                    if (isSame(spots.stockA[i], spots.stockA[j])) {
+                        console.log("like cards in stock A");
+                        return true;
+                    }
+                }
+            }
+            for (let i = 0; i < spots.stockB.length; i++) { // stock B
+                for (let j = i + 1; j < spots.stockB.length; j++) {
+                    if (isSame(spots.stockB[i], spots.stockB[j])) {
+                        console.log("like cards in stock B");
+                        return true;
+                    }
+                }
+            }
+        }
+    } 
+    
+    // checking if both stacks are empty 
+    if(spots.stackA.cards.length == 0 && spots.stackB.cards.length == 0) {
+        console.log("both stacks empty");
+        return false;
+    }
+    
+    // checking for if moves can be played to stack
+    if(spots.stockA.some(spot => isAdjacent(spot, spots.stackA))){
+        console.log ("viable stockA -> stackA"); 
+        return true;
+    }
+    if(spots.stockB.some(spot => isAdjacent(spot, spots.stackA))){
+        console.log ("viable stockB -> stackA"); 
+        return true;
+    }
+    if(spots.stockA.some(spot => isAdjacent(spot, spots.stackB))){
+        console.log ("viable stockA -> stackB"); 
+        return true;
+    }
+    if(spots.stockB.some(spot => isAdjacent(spot, spots.stackB))){
+        console.log ("viable stockB -> stackB"); 
+        return true;
+    }
+}
+
 export function startGame() {
     init()
     sendCards(spots.deckA)
@@ -639,7 +772,17 @@ export function startGame() {
     deal()
 }
 
-window.getSpotInfo = getSpotInfo
+export function flipNext(avoidSend) {
+    moveCard(spots.deckA, spots.stackA, {'flip':true}, true)
+    moveCard(spots.deckB, spots.stackB, {'flip':true}, true)
+    selectedSpot = 0
+    sendSelect(0)
+    if(!avoidSend) {
+        sendMessage({'type':'flipNext'})
+    }
+}
+
+window.getSpotInfo = getSpotInfo; // debug
 
 function gameLoop(now) {
     cardsctx.clearRect(0, 0, cards.width, cards.height);
@@ -662,8 +805,7 @@ function gameLoop(now) {
                 animations[i].card.busy = false;
                 if (animations[i].task) {
                     if (animations[i].task.flip) {
-                        //console.log(animations[i].task.destination)
-                        flipCard(animations[i].task.destination, animations[i].card)
+                        flipCard(animations[i].task.destination, animations[i].card, true)
                     }
                 }
             }
