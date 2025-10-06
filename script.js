@@ -27,7 +27,7 @@ const loseScreen = document.getElementById('loseScreen');
 
 let isHost = false;
 
-const signalingSocket = new WebSocket("ws://142.151.132.228:3000");
+const signalingSocket = new WebSocket("wss://142.151.132.228:3000");
 setStatus("Not in room", "disconnected");
 
 function setStatus(text, state = "pending") {
