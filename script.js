@@ -1,4 +1,4 @@
-import { startGame, recieveCards, recieveMove, recieveFlip, recieveSelect, flipNext } from './game/game.js';
+import { startGame, startAnimation, recieveCards, recieveMove, recieveFlip, recieveSelect, flipNext, lose } from './game/game.js';
 
 const configuration = {
     iceServers: [
@@ -19,11 +19,15 @@ const createRoomBtn = document.getElementById('createRoom');
 const joinRoomBtn = document.getElementById('joinRoom');
 const startBtn = document.getElementById('startBtn')
 const setup = document.getElementById('setup');
+const winScreen = document.getElementById('winScreen');
+const loseScreen = document.getElementById('loseScreen');
+
+
 
 
 let isHost = false;
 
-const signalingSocket = new WebSocket("ws://142.151.132.228:3000");
+const signalingSocket = new WebSocket("ws://localhost:3000");
 
 setStatus("Not in room", "disconnected");
 
@@ -33,18 +37,12 @@ function setStatus(text, state = "pending") {
     status.className = "status " + state; // "disconnected", "pending", or "connected"
 }
 
-function start() {
-    setup.style.display = 'none'
-    startGame()
-}
-
 function handleGameMsg(msg) {
     //console.log("msg:")
     console.log(msg)
     switch (msg.type) {
-        case 'deal':
-            setup.style.display = 'none'
-            // deal()
+        case 'start':
+            startAnimation()
             break;
         case 'move':
             recieveMove(msg);
@@ -62,8 +60,8 @@ function handleGameMsg(msg) {
             flipNext(true)
             break;
         case 'win': 
+            lose()
             break;
-            //do something for win
     }
 }
 
@@ -90,6 +88,7 @@ signalingSocket.onmessage = async (event) => {
 };
 
 createRoomBtn.onclick = () => {
+    joinRoomBtn.disabled = true;
     isHost = true;
     roomCode = generateId();
     roomCodeInput.value = roomCode;
@@ -98,13 +97,22 @@ createRoomBtn.onclick = () => {
 };
 
 joinRoomBtn.onclick = () => {
+    createRoomBtn.disabled = true;
     roomCode = roomCodeInput.value.trim();
     setStatus("Joining room...", "pending");
     signalingSocket.send(JSON.stringify({ type: 'join-room', room: roomCode, peerId: localPeerId }));
 };
 
 startBtn.onclick = () => {
-    start()
+    startGame()
+}
+
+document.getElementsByClassName("playAgain")[0].onclick = () => {
+    // Append a dummy query string to bust cache
+    window.location.href = window.location.pathname + "?cachebust=" + new Date().getTime();
+}
+    document.getElementsByClassName("playAgain")[1].onclick = () => {
+    window.location.href = window.location.pathname + "?cachebust=" + new Date().getTime();
 }
 
 export function sendMessage(msg) {

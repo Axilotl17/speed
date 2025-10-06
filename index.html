@@ -12,15 +12,6 @@
             <canvas id="cards" width="1200" height="800" ></canvas>
             <canvas id="foci" width="1200" height="800" ></canvas>
         </div>
-        <!-- <div id="setup">
-            <h1 class="center">Connect to or create a room</h1>
-            <div id="connection" class="center">
-                <input type="text" id="roomCodeInput" placeholder="Enter room code" /> 
-                <button id="createRoom">Create Room</button> 
-                <button id="joinRoom">Join Room</button>
-            </div>
-            <button id = "btnx"><p id = "btnxp">x</p></button>
-        </div> -->
         <div id="setup">
             <div class="lobby">
                 <h2>Game Lobby</h2>
@@ -37,6 +28,20 @@
 
                 <!-- Start Button -->
                 <button class="primary" disabled id="startBtn">Start Game</button>
+            </div>
+        </div>
+        <div id="winScreen" style="display:none">
+            <div class="lobby">
+                <h2>You Win!</h2>
+                <p>Nice Job!</p>
+                <button class="primary, playAgain">Play Again?</button>
+            </div>
+        </div>
+        <div id="loseScreen" style="display:none">
+            <div class="lobby">
+                <h2>You Lose!</h2>
+                <p>Nice try.</p>
+                <button class="primary, playAgain" enabled>Play Again?</button>
             </div>
         </div>
     </body>

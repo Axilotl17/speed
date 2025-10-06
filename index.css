@@ -13,7 +13,7 @@ canvas {
     margin:10px
 }
 
-#setup {
+#setup , #winScreen, #loseScreen{
     font-family: Arial, sans-serif;
     background: #f4f6f9;
     display: flex;
@@ -74,7 +74,7 @@ button.secondary:hover {
     background: #545b62;
 }
 
-#startBtn:disabled {
+button.primary:disabled, button.secondary:disabled {
   background: #b0b0b0;
   color: #eee;
   cursor: not-allowed;

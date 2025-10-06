@@ -31,6 +31,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     foci.addEventListener("click", (event) => {
+        if(!gameOn){return}
         const rect = foci.getBoundingClientRect();
         const clickX = (event.clientX - rect.left) * (foci.width / rect.width);
         const clickY = (event.clientY - rect.top) * (foci.width / rect.width);
@@ -50,7 +51,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     resizeCanvas();
-    requestAnimationFrame(gameLoop);
     createSpots();
     preloadSounds();
 });
@@ -138,6 +138,7 @@ var piles = [1, 2, 3, 4, 5] // max 7
 var decks = 1
 var deck = [];
 var spots
+var gameOn = false
 
 var focusedSpot
 var selectedSpot = 0 
@@ -151,7 +152,14 @@ function init() {
     spots.deckB.cards.push(...deck.slice(deck.length/2, deck.length))
 }
 
+export function startAnimation() {
+    setup.style.display = 'none'
+    requestAnimationFrame(gameLoop);
+    gameOn = true
+}
+
 function deal() {
+
     //debugging
     //moveCard(spots.deckA, spots.stackA, {'flip':true})
     //moveCard(spots.deckB, spots.stackB, {'flip':true})
@@ -518,6 +526,7 @@ function handleSpotClick(spot) {
                 }
                 selectedSpot = 0;
                 sendSelect(0);
+                checkForWin()
             } else {
                 errorCard(selectedSpot)
                 selectedSpot = 0;
@@ -713,14 +722,14 @@ function swapAB(spotName) { // swaps A for B in spot names vice versa
 function checkForMoves() {
     console.log('checking for moves')
 
-    // checking for if can simplify stock
+    // checking for if can simplify stock A
     if(spots.stockA.some(spot => spot.cards.some(card => !card.faceUp))) { // if any card is faceDown
         if(spots.stockA.some(spot => spot.cards.length == 0)) { // and there's an empty space
-            console.log("empty space + facedown cards");
+            console.log("empty space + facedown cards in stock A");
             return true;
         } else { // why its in else? following will error if empty space. 
             // checking if can stack likes in stock
-            for (let i = 0; i < spots.stockA.length; i++) { // stock A
+            for (let i = 0; i < spots.stockA.length; i++) { 
                 for (let j = i + 1; j < spots.stockA.length; j++) {
                     if (isSame(spots.stockA[i], spots.stockA[j])) {
                         console.log("like cards in stock A");
@@ -728,7 +737,17 @@ function checkForMoves() {
                     }
                 }
             }
-            for (let i = 0; i < spots.stockB.length; i++) { // stock B
+        }
+    } 
+
+    // checking for if can simplify stock B
+    if(spots.stockB.some(spot => spot.cards.some(card => !card.faceUp))) { // if any card is faceDown
+        if(spots.stockB.some(spot => spot.cards.length == 0)) { // and there's an empty space
+            console.log("empty space + facedown cards in stock B");
+            return true;
+        } else { // why its in else? following will error if empty space. 
+            // checking if can stack likes in stock
+            for (let i = 0; i < spots.stockB.length; i++) {
                 for (let j = i + 1; j < spots.stockB.length; j++) {
                     if (isSame(spots.stockB[i], spots.stockB[j])) {
                         console.log("like cards in stock B");
@@ -744,31 +763,47 @@ function checkForMoves() {
         console.log("both stacks empty");
         return false;
     }
-    
+
     // checking for if moves can be played to stack
-    if(spots.stockA.some(spot => isAdjacent(spot, spots.stackA))){
+    if(spots.stockA.some(spot => spot.cards.length > 0 && isAdjacent(spot, spots.stackA))){
         console.log ("viable stockA -> stackA"); 
         return true;
     }
-    if(spots.stockB.some(spot => isAdjacent(spot, spots.stackA))){
+    if(spots.stockB.some(spot => spot.cards.length > 0 && isAdjacent(spot, spots.stackA))){
         console.log ("viable stockB -> stackA"); 
         return true;
     }
-    if(spots.stockA.some(spot => isAdjacent(spot, spots.stackB))){
+    if(spots.stockA.some(spot => spot.cards.length > 0 && isAdjacent(spot, spots.stackB))){
         console.log ("viable stockA -> stackB"); 
         return true;
     }
-    if(spots.stockB.some(spot => isAdjacent(spot, spots.stackB))){
+    if(spots.stockB.some(spot => spot.cards.length > 0 && isAdjacent(spot, spots.stackB))){
         console.log ("viable stockB -> stackB"); 
         return true;
     }
 }
 
+function checkForWin() {
+    if(!spots.stockB.some(spot => spot.cards.length > 0)) { //if no spots with >0 cards
+        let msg = {};
+        msg.type = 'win';
+        sendMessage(msg);
+        gameOn = false;
+        winScreen.style.display = 'flex'
+    }
+}
+
+export function lose() {
+    gameOn = false
+    loseScreen.style.display = 'flex'
+}
+
 export function startGame() {
+    startAnimation()
     init()
     sendCards(spots.deckA)
     sendCards(spots.deckB)
-    sendMessage({'type':'deal'})
+    sendMessage({'type':'start'})
     deal()
 }
 
@@ -815,7 +850,7 @@ function gameLoop(now) {
         }
     }
 
-    requestAnimationFrame(gameLoop);
+    if(gameOn || animations.length > 0) {requestAnimationFrame(gameLoop)};
 }
 
 function resizeCanvas() {

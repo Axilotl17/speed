@@ -1,5 +1,5 @@
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: 3000, host: '0.0.0.0' });
+const wss = new WebSocket.Server({ port: 3000 });
 
 const rooms = new Map(); // roomCode -> Set of clients
 
@@ -66,4 +66,4 @@ wss.on('connection', (ws) => {
   });
 });
 
-console.log('Signaling server running on ws://142.151.132.228:3000');
+console.log('Signaling server running on ws://localhost:3000');
